@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="tr" translate="no">
+<head>
+<meta charset="UTF-8">
+<meta name="google" content="notranslate">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Play Chess - Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; font-family: 'Montserrat', sans-serif; user-select: none; }
+  body { background-color: #302e2b; color: #fff; height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+  .screen { display: none; flex-direction: column; flex: 1; height: 100%; overflow-y: auto; overflow-x: hidden; padding-bottom: 80px; position: relative; }
+  .screen.active { display: flex; }
+  
+  :root { --green: #81b64c; --dark-green: #5d8a32; --bg: #302e2b; --panel: #262421; --text-muted: #babaca; --blue: #4a90e2; }
+
+  .dash-header { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; }
+  .dash-user { display: flex; align-items: center; gap: 10px; }
+  .dash-avatar { width: 45px; height: 45px; border-radius: 50%; background: #555; overflow: hidden; border: 2px solid var(--green);}
+  .dash-avatar img { width: 100%; height: 100%; }
+  .dash-fire { background: #3d3a37; padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: 800; color: #f39c12; }
+  
+  .dash-section { padding: 0 20px; margin-bottom: 25px; }
+  .dash-title { font-size: 16px; font-weight: 800; margin-bottom: 15px; display: flex; justify-content: space-between; }
+  .dash-title span { font-size: 12px; color: var(--green); cursor: pointer; }
+
+  .h-scroll { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 10px; scrollbar-width: none; }
+  .h-scroll::-webkit-scrollbar { display: none; }
+  
+  .dash-card { background: var(--panel); min-width: 140px; border-radius: 12px; padding: 15px; display: flex; flex-direction: column; align-items: center; text-align: center; cursor: pointer; transition: 0.2s; }
+  .dash-card:active { transform: scale(0.95); }
+  .dash-card .icon { font-size: 32px; margin-bottom: 10px; }
+  .dash-card .title { font-size: 13px; font-weight: 800; margin-bottom: 4px; }
+  .dash-card .subtitle { font-size: 11px; color: var(--green); font-weight: 600; }
+  
+  .rating-card { background: var(--panel); min-width: 100px; border-radius: 12px; padding: 15px 10px; display: flex; flex-direction: column; align-items: center; }
+  .rating-card .icon { font-size: 24px; margin-bottom: 8px; }
+  .rating-card .score { font-size: 18px; font-weight: 800; }
+  .rating-card .label { font-size: 10px; color: var(--text-muted); margin-top: 4px;}
+
+  .btn-play-main { position: fixed; bottom: 75px; left: 20px; right: 20px; background: var(--green); color: #fff; font-size: 20px; font-weight: 800; padding: 16px; border-radius: 8px; border: none; box-shadow: 0 4px 15px rgba(129, 182, 76, 0.4); cursor: pointer; z-index: 10; }
+  .btn-play-main:active { background: var(--dark-green); }
+
+  .header-nav { display: flex; align-items: center; padding: 20px; gap: 15px; font-size: 20px; font-weight: 800; border-bottom: 1px solid #3d3a37; }
+  .header-nav .back { font-size: 24px; color: var(--text-muted); cursor: pointer; }
+  .content-area { padding: 20px; display: flex; flex-direction: column; gap: 12px; flex: 1;}
+  
+  .btn-menu-option { background: var(--panel); padding: 18px; border-radius: 8px; font-weight: 700; font-size: 15px; color: #fff; text-align: center; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.2s; }
+  .btn-menu-option:active { background: #3d3a37; }
+  
+  .game-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid #3d3a37;}
+  .game-header .back { font-size: 20px; color: var(--text-muted); cursor: pointer; }
+  .rating-box { background: #3d3a37; padding: 6px 12px; border-radius: 6px; font-weight: 800; font-size: 14px; }
+
+  .timer-display { display: flex; justify-content: space-between; font-size: 20px; font-weight: 800; padding: 5px 20px; margin-bottom: 5px; }
+  .timer-display span { background: #262421; padding: 5px 15px; border-radius: 6px; color: #888; transition: 0.3s;}
+  .timer-display span.active { background: var(--green); color: #fff; }
+
+  .coach-area { display: flex; align-items: flex-end; padding: 10px 16px; gap: 10px; flex-shrink: 0; }
+  .avatar-container { width: 45px; height: 45px; border-radius: 50%; overflow: hidden; background: #222; flex-shrink: 0; border: 2px solid var(--green);}
+  .avatar-img { width: 100%; height: 100%; background-size: cover; background-position: center; }
+  .speech-bubble { background: #fff; color: #111; padding: 10px 14px; border-radius: 8px; border-bottom-left-radius: 2px; font-size: 12px; font-weight: 600; flex: 1; box-shadow: 0 4px 12px rgba(0,0,0,0.3); min-height: 40px; display: flex; align-items: center; }
+
+  .board-container { flex: 1; display: flex; justify-content: center; align-items: center; padding: 0 8px; width: 100%; min-height: 0; }
+  #board, #puzzleBoard { width: 100%; max-width: 500px; aspect-ratio: 1 / 1; display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); border-radius: 4px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative; touch-action: none; }
+  .square { position: relative; display: flex; align-items: center; justify-content: center; }
+  .square.light { background-color: #EBECD0; }
+  .square.dark { background-color: #739552; }
+  
+  .square.last-move::before { content: ''; position: absolute; inset: 0; background: rgba(255, 255, 0, 0.4); }
+  .square.selected::before { content: ''; position: absolute; inset: 0; background: rgba(255, 255, 0, 0.6); }
+  .square.move-target::after { content: ''; position: absolute; width: 30%; height: 30%; border-radius: 50%; background: rgba(0,0,0,0.15); }
+  .square.capture-target::after { content: ''; position: absolute; inset: 4%; border: 6px solid rgba(0,0,0,0.15); border-radius: 50%; }
+  
+  .square.in-check::after { content: ''; position: absolute; inset: 0; background: radial-gradient(circle, rgba(255,0,0,0.1) 20%, rgba(255,0,0,0.8) 100%); animation: smooth-pulse 1.5s ease-in-out infinite; pointer-events: none; z-index: 1; }
+  .square.checkmate { background-color: #ff4d4d !important; }
+  @keyframes smooth-pulse { 0% { opacity: 0.2; } 50% { opacity: 1; } 100% { opacity: 0.2; } }
+
+  .piece { width: 100%; height: 100%; background-size: contain; background-repeat: no-repeat; background-position: center; position: relative; z-index: 2; cursor: grab; }
+  .dragging-piece { position: fixed !important; z-index: 1000 !important; pointer-events: none; transform: translate(-50%, -50%) scale(1.1); cursor: grabbing; }
+  .ghost-piece { position: fixed !important; z-index: 999 !important; pointer-events: none; transition: transform 0.2s ease-in-out; }
+
+  .w-p { background-image: url('https://lichess1.org/assets/piece/cburnett/wP.svg'); } .w-n { background-image: url('https://lichess1.org/assets/piece/cburnett/wN.svg'); } .w-b { background-image: url('https://lichess1.org/assets/piece/cburnett/wB.svg'); } .w-r { background-image: url('https://lichess1.org/assets/piece/cburnett/wR.svg'); } .w-q { background-image: url('https://lichess1.org/assets/piece/cburnett/wQ.svg'); } .w-k { background-image: url('https://lichess1.org/assets/piece/cburnett/wK.svg'); }
+  .b-p { background-image: url('https://lichess1.org/assets/piece/cburnett/bP.svg'); } .b-n { background-image: url('https://lichess1.org/assets/piece/cburnett/bN.svg'); } .b-b { background-image: url('https://lichess1.org/assets/piece/cburnett/bB.svg'); } .b-r { background-image: url('https://lichess1.org/assets/piece/cburnett/bR.svg'); } .b-q { background-image: url('https://lichess1.org/assets/piece/cburnett/bQ.svg'); } .b-k { background-image: url('https://lichess1.org/assets/piece/cburnett/bK.svg'); }
+
+  .game-controls { display: flex; justify-content: space-between; padding: 10px 20px 20px 20px; background: var(--panel); }
+  .game-btn { background: #3d3a37; color: #fff; border: none; padding: 12px 15px; border-radius: 6px; font-weight: 700; cursor: pointer; flex: 1; margin: 0 5px; font-size: 13px; }
+  .game-btn:active { background: #555; }
+
+  .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; display: flex; justify-content: space-around; align-items: center; padding: 10px 0 15px 0; background: var(--panel); z-index: 50; border-top: 1px solid #3d3a37; }
+  .nav-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; color: #8c8a87; font-size: 10px; font-weight: 700; cursor: pointer; background: none; border: none; width: 20%; }
+  .nav-btn svg { width: 24px; height: 24px; fill: currentColor; }
+  .nav-btn.active { color: #fff; }
+
+  .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); justify-content: center; align-items: center; z-index: 200; padding: 20px; }
+  .modal-content { background: var(--panel); border-radius: 12px; padding: 20px; width: 100%; max-width: 350px; text-align: center; border: 1px solid #3d3a37; }
+  .modal-content h3 { margin-bottom: 20px; font-size: 18px; font-weight: 800; }
+  .btn-modal { width: 100%; padding: 15px; font-size: 15px; font-weight: 800; border-radius: 8px; border: none; cursor: pointer; margin-bottom: 10px; box-shadow: 0 4px 0 rgba(0,0,0,0.2); color: #fff; transition: 0.1s;}
+  .btn-modal:active { transform: translateY(2px); box-shadow: none; }
+  .btn-modal.green { background: var(--green); box-shadow: 0 4px 0 var(--dark-green); }
+  .btn-modal.blue { background: var(--blue); box-shadow: 0 4px 0 #357abd; }
+  .btn-modal.gray { background: #3d3a37; }
+  .btn-modal.red { background: #d9534f; box-shadow: 0 4px 0 #a83834; }
+
+  .online-input { width: 100%; padding: 16px; font-size: 20px; text-align: center; background: #1c1b19; color: #fff; border: 2px solid #3d3a37; border-radius: 8px; margin-bottom: 15px; letter-spacing: 2px; text-transform: uppercase; font-weight: 700; outline: none; }
+  .spinner { border: 4px solid rgba(255, 255, 255, 0.1); border-left-color: var(--green); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
+  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  
+  .review-item { display: flex; padding: 10px; border-bottom: 1px solid #3d3a37; font-size: 14px; font-weight: 600; align-items: center; }
+  .review-move { width: 80px; color: #fff; }
+  .review-eval { flex: 1; text-align: right; font-weight: 800;}
+  .eval-brilliant { color: #1baca6; }
+  .eval-blunder { color: #fa412d; }
+  .eval-good { color: #95bb4a; }
+</style>
+</head>
+<body>
+
+<div class="screen active" id="homeScreen">
+  <div class="dash-header">
+    <div class="dash-user">
+      <div class="dash-avatar"><img src="https://api.dicebear.com/7.x/adventurer/svg?seed=Selcuk" alt="User"></div>
+      <div class="dash-fire">🔥 9</div>
+    </div>
+    <div class="dash-icons" style="font-size:20px;">💎 👥 🔔</div>
+  </div>
+
+  <div class="dash-section">
+    <div class="h-scroll">
+      <div class="dash-card" onclick="showScreen('puzzlesScreen')">
+        <div class="icon">📅</div>
+        <div class="title">Bulmacalar</div>
+        <div class="subtitle" id="homePuzzleLvl">Seviye 1 / 3000</div>
+      </div>
+      <div class="dash-card" onclick="showScreen('newGameScreen')">
+        <div class="icon">🤖</div>
+        <div class="title">Botlarla Oynayın</div>
+        <div class="subtitle">Yeni Başlayan</div>
+      </div>
+      <div class="dash-card" onclick="openModal('coachModal')">
+        <div class="icon">👨‍🏫</div>
+        <div class="title">Eğitmenle Oyna</div>
+        <div class="subtitle">İnceleme Yap</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dash-section">
+    <div class="dash-title">Puanlar (ELO) <span>Tümünü Göster</span></div>
+    <div class="h-scroll">
+      <div class="rating-card">
+        <div class="icon">⏱️</div>
+        <div class="score" id="eloHizli">1200</div>
+        <div class="label">Hızlı</div>
+      </div>
+      <div class="rating-card">
+        <div class="icon">⚡</div>
+        <div class="score" id="eloYildirim">1150</div>
+        <div class="label">Yıldırım</div>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn-play-main" onclick="showScreen('newGameScreen')">Oyna</button>
+</div>
+
+<div class="screen" id="newGameScreen">
+  <div class="header-nav">
+    <div class="back" onclick="showScreen('homeScreen')">←</div>
+    <div>Yeni Oyun</div>
+  </div>
+  
+  <div class="content-area">
+    <button class="btn-menu-option" onclick="openModal('timeModal')" id="selectedTimeDisplay">⏱️ 10 dk (Süre Seç) ▼</button>
+    
+    <button class="btn-menu-option" style="background:var(--green); color:#fff; box-shadow: 0 4px 0 var(--dark-green); font-size:18px;" onclick="openModal('onlineModal')">🌐 Online Oyna (Eşleş / Oda Kur)</button>
+    <button class="btn-menu-option" onclick="startGame('passandplay')">👥 Yüz Yüze Oyna (Aynı Cihaz)</button>
+    <button class="btn-menu-option" onclick="openModal('optionsModal')">💻 Botlarla Oynayın</button>
+  </div>
+</div>
+
+<div class="screen" id="gameScreen">
+  <div class="game-header">
+    <div class="back" onclick="exitGame()">←</div>
+    <div class="rating-box">ELO: <span id="playerRating">1200</span></div>
+    <div style="width:24px;"></div>
+  </div>
+
+  <div class="timer-display">
+    <span id="timerTop">10:00</span>
+    <span id="timerBottom">10:00</span>
+  </div>
+
+  <div class="coach-area">
+    <div class="avatar-container"><div class="avatar-img" id="gameCoachAvatar"></div></div>
+    <div class="speech-bubble" id="coachText">Hadi başlayalım!</div>
+  </div>
+
+  <div class="board-container">
+    <div id="board"></div>
+  </div>
+
+  <div class="game-controls">
+    <button class="game-btn" onclick="offerDraw()">🤝 Beraberlik</button>
+    <button class="game-btn" onclick="exitGame()">🏳️ Terk Et</button>
+  </div>
+</div>
+
+<div class="screen" id="puzzlesScreen">
+  <div class="header-nav">
+    <div class="back" onclick="showScreen('homeScreen')">←</div>
+    <div>Bulmacalar</div>
+  </div>
+  <div class="content-area" style="align-items: center; justify-content: center; text-align: center;">
+    <h2 style="font-size: 36px; color: var(--green); margin-bottom: 10px;" id="puzzleLevelText">Seviye 1 / 3000</h2>
+    <p style="color: var(--text-muted); margin-bottom: 20px; font-weight:600;" id="puzzleDesc">Mat yapmak için en iyi hamleyi bul.</p>
+    <div class="board-container" style="min-height: 300px; margin-bottom: 20px;">
+      <div id="puzzleBoard"></div>
+    </div>
+    <button class="btn-modal green" style="max-width: 300px;" onclick="nextPuzzle()">Geç / İpucu Al</button>
+  </div>
+</div>
+
+<div class="screen" id="learnScreen">
+  <div class="header-nav">
+    <div class="back" onclick="showScreen('homeScreen')">←</div>
+    <div>Öğren</div>
+  </div>
+  <div class="content-area">
+    <select class="btn-menu-option" style="width:100%; text-align:left; padding:15px; appearance: none;">
+      <option>Türkiye 🇹🇷</option>
+      <option>Amerika 🇺🇸</option>
+      <option>Almanya 🇩🇪</option>
+      <option>İngiltere 🇬🇧</option>
+    </select>
+    <h3 style="margin-top: 10px; font-size:16px;">Taşları Öğren</h3>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+      <div class="dash-card"><img src="https://lichess1.org/assets/piece/cburnett/wP.svg" style="width:40px; margin-bottom:10px;"><div>Piyon: İleri gider.</div></div>
+      <div class="dash-card"><img src="https://lichess1.org/assets/piece/cburnett/wN.svg" style="width:40px; margin-bottom:10px;"><div>At: L şeklinde gider.</div></div>
+      <div class="dash-card"><img src="https://lichess1.org/assets/piece/cburnett/wB.svg" style="width:40px; margin-bottom:10px;"><div>Fil: Çapraz gider.</div></div>
+      <div class="dash-card"><img src="https://lichess1.org/assets/piece/cburnett/wR.svg" style="width:40px; margin-bottom:10px;"><div>Kale: Düz gider.</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="screen" id="reviewScreen">
+  <div class="header-nav">
+    <div class="back" onclick="showScreen('homeScreen')">←</div>
+    <div>Maç İncelemesi</div>
+  </div>
+  <div class="content-area">
+    <div style="text-align: center; margin-bottom: 20px;">
+      <div class="avatar-container" style="margin: 0 auto 10px auto; width: 60px; height: 60px; border-color: #f1c40f;"><div class="avatar-img" id="reviewCoachImg" style="background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/Magnus_Carlsen_%282019%29_%28cropped%29.jpg/220px-Magnus_Carlsen_%282019%29_%28cropped%29.jpg');"></div></div>
+      <h3 id="reviewCoachName">Magnus Carlsen Analizi</h3>
+    </div>
+    <div id="reviewList" style="background: var(--panel); border-radius: 8px; max-height: 400px; overflow-y: auto; border: 1px solid #3d3a37;"></div>
+  </div>
+</div>
+
+<div class="bottom-nav">
+  <button class="nav-btn active" onclick="showScreen('homeScreen')">
+    <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg> Ana Sayfa
+  </button>
+  <button class="nav-btn" onclick="showScreen('puzzlesScreen')">
+    <svg viewBox="0 0 24 24"><path d="M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5C13 2.12 11.88 1 10.5 1S8 2.12 8 3.5V5H4c-1.1 0-1.99.9-1.99 2v3.8H3.5c1.49 0 2.7 1.21 2.7 2.7s-1.21 2.7-2.7 2.7H2V20c0 1.1.9 2 2 2h3.8v-1.5c0-1.49 1.21-2.7 2.7-2.7 1.49 0 2.7 1.21 2.7 2.7V22H17c1.1 0 2-.9 2-2v-4h1.5c1.38 0 2.5-1.12 2.5-2.5S21.88 11 20.5 11z"/></svg> Bulmacalar
+  </button>
+  <button class="nav-btn" onclick="showScreen('learnScreen')">
+    <svg viewBox="0 0 24 24"><path d="M12 3L1 9l4 2.18v6L12 21l7-3.82v-6l2-1.09V17h2V9L12 3zm6.82 6L12 12.72 5.18 9 12 5.28 18.82 9zM17 15.99l-5 2.73-5-2.73v-3.72l5 2.73 5-2.73v3.72z"/></svg> Öğren
+  </button>
+  <button class="nav-btn" onclick="showScreen('reviewScreen')">
+    <svg viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h5v2h8v-2h5c1.1 0 1.99-.9 1.99-2L23 5c0-1.1-.9-2-2-2zm0 14H3V5h18v12z"/></svg> İncele
+  </button>
+  <button class="nav-btn" onclick="showScreen('learnScreen')">
+    <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg> Daha Fazla
+  </button>
+</div>
+
+<div class="modal" id="timeModal">
+  <div class="modal-content">
+    <h3>Süre Seçin</h3>
+    <button class="btn-modal gray" onclick="setTime(600)">10 Dakika</button>
+    <button class="btn-modal gray" onclick="setTime(180)">3 Dakika</button>
+    <button class="btn-modal gray" onclick="setTime(60)">1 Dakika</button>
+    <button class="btn-modal gray" onclick="setTime(30)">30 Saniye</button>
+    <button class="btn-modal green" onclick="setTime(0)">Süresiz</button>
+    <button class="btn-modal gray" style="background:transparent; box-shadow:none; color:var(--text-muted);" onclick="closeModal('timeModal')">Kapat</button>
+  </div>
+</div>
+
+<div class="modal" id="optionsModal">
+  <div class="modal-content">
+    <h3>Bot Seviyesi</h3>
+    <button class="btn-modal gray" onclick="setBot('easy')">Kolay</button>
+    <button class="btn-modal green" onclick="setBot('medium')">Orta</button>
+    <button class="btn-modal red" onclick="setBot('hard')">Zor</button>
+    <button class="btn-modal gray" style="background:transparent; box-shadow:none; color:var(--text-muted);" onclick="closeModal('optionsModal')">Kapat</button>
+  </div>
+</div>
+
+<div class="modal" id="coachModal">
+  <div class="modal-content">
+    <h3>Eğitmen Seçin</h3>
+    <button class="btn-modal gray" onclick="selectCoach('magnus')" style="display:flex; align-items:center; gap:10px; justify-content:center;">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/Magnus_Carlsen_%282019%29_%28cropped%29.jpg/220px-Magnus_Carlsen_%282019%29_%28cropped%29.jpg" style="width:30px; height:30px; border-radius:50%;"> Magnus Carlsen
+    </button>
+    <button class="btn-modal gray" onclick="selectCoach('sabo')" style="display:flex; align-items:center; gap:10px; justify-content:center;">
+      <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Sabri" style="width:30px; height:30px; border-radius:50%;"> Sabo Paşa
+    </button>
+    <button class="btn-modal gray" style="background:transparent; box-shadow:none; color:var(--text-muted);" onclick="closeModal('coachModal')">Kapat</button>
+  </div>
+</div>
+
+<div class="modal" id="drawModal">
+  <div class="modal-content">
+    <h3>Beraberlik Teklifi</h3>
+    <p style="margin-bottom:15px;">Rakibiniz beraberlik teklif ediyor. Kabul ediyor musunuz?</p>
+    <button class="btn-modal green" onclick="respondDraw(true)">Kabul Et</button>
+    <button class="btn-modal red" onclick="respondDraw(false)">Reddet</button>
+  </div>
+</div>
+
+<div class="modal" id="gameOverModal">
+  <div class="modal-content">
+    <h3 id="gameOverTitle">Oyun Bitti</h3>
+    <p id="gameOverDesc" style="margin-bottom: 20px; color: var(--text-muted);"></p>
+    <button class="btn-modal green" onclick="goToReview()">Oyunu İncele</button>
+    <button class="btn-modal gray" onclick="closeModal('gameOverModal'); exitGame();">Ana Sayfa</button>
+  </div>
+</div>
+
+<div class="modal" id="onlineModal">
+  <div class="modal-content" id="onlineMain">
+    <h3>Online Oyna</h3>
+    <button class="btn-modal blue" onclick="startQuickMatch()" style="margin-bottom:15px;">⚡ Hızlı Eşleş</button>
+    <div style="margin-bottom:15px; border-top:1px solid #444;"></div>
+    <button class="btn-modal gray" onclick="createOnlineRoom('w')" style="margin-bottom:10px;">Oda Kur (Beyaz)</button>
+    <button class="btn-modal gray" onclick="createOnlineRoom('b')">Oda Kur (Siyah)</button>
+    <div style="margin-top:15px; display:flex; gap:5px;">
+      <input type="text" id="joinCodeInput" class="online-input" placeholder="KOD" maxlength="5" style="flex:1; margin-bottom:0;">
+      <button class="btn-modal green" onclick="joinOnlineRoom()" style="width:80px; margin-bottom:0;">Katıl</button>
+    </div>
+    <button class="btn-modal gray" style="background:transparent; box-shadow:none; color:var(--text-muted); margin-top:15px;" onclick="closeModal('onlineModal')">Kapat</button>
+  </div>
+  
+  <div class="modal-content" id="onlineWait" style="display:none;">
+    <h3 id="waitTitle">Oda Kuruldu</h3>
+    <p id="waitDesc" style="margin-bottom:10px;">Bu kodu arkadaşına gönder:</p>
+    <div style="font-size:40px; color:var(--green); font-weight:800; margin:15px 0; letter-spacing:5px;" id="waitCode">----</div>
+    <div class="spinner" id="waitSpinner"></div>
+    <p style="color:var(--green); font-weight:700; margin-bottom:20px;" id="waitStatus">Rakip bekleniyor...</p>
+    <button class="btn-modal red" onclick="cancelOnlineRoom()">İptal Et</button>
+  </div>
+</div>
+
+<script>
+  window.onerror = function(msg) { console.log("Hata:", msg); };
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyA0OhCbYtZuo4yFPCJrsb7SI9XIHVE9SUU",
+    authDomain: "play-chess-1348f.firebaseapp.com",
+    databaseURL: "https://play-chess-1348f-default-rtdb.firebaseio.com",
+    projectId: "play-chess-1348f",
+    storageBucket: "play-chess-1348f.firebasestorage.app",
+    messagingSenderId: "588951342298",
+    appId: "1:588951342298:web:8439254dc667258679a9e3"
+  };
+  let db = null;
+  try { firebase.initializeApp(firebaseConfig); db = firebase.database(); } catch(e) { console.log(e); }
+
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    if(id === 'homeScreen') document.querySelectorAll('.nav-btn')[0].classList.add('active');
+    if(id === 'puzzlesScreen') { document.querySelectorAll('.nav-btn')[1].classList.add('active'); loadPuzzle(); }
+    if(id === 'learnScreen') document.querySelectorAll('.nav-btn')[2].classList.add('active');
+    if(id === 'reviewScreen') document.querySelectorAll('.nav-btn')[3].classList.add('active');
+    if(id === 'gameScreen') setTimeout(() => renderBoard('board'), 50);
+  }
+
+  function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+  function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+  
+  const soundMove = new Audio('https://images.chesscomfiles.com/chess-themes/sounds/_mp3_/default/move-self.mp3');
+  const soundCapture = new Audio('https://images.chesscomfiles.com/chess-themes/sounds/_mp3_/default/capture.mp3');
+  const soundCheck = new Audio('https://images.chesscomfiles.com/chess-themes/sounds/_mp3_/default/move-check.mp3');
+  function playSound(type) {
+    try {
+      if(type === 'move') { soundMove.currentTime = 0; soundMove.play(); }
+      if(type === 'capture') { soundCapture.currentTime = 0; soundCapture.play(); }
+      if(type === 'check') { soundCheck.currentTime = 0; soundCheck.play(); }
+    } catch(e) {}
+  }
+
+  const FILES = ['a','b','c','d','e','f','g','h'];
+  let chess = new Chess();
+  let playerColor = 'w';
+  let selectedSq = null;
+  let legalTargets = [];
+  let lastMove = null;
+  let thinking = false;
+  let gameOver = false;
+  let isFlipped = false;
+  let isAnimating = false;
+  let isDragging = false;
+  let dragStartSq = null;
+  let dragStartX = 0, dragStartY = 0;
+
+  let currentMode = 'bot'; 
+  let currentCoach = 'magnus';
+  let timeControl = 600; 
+  let timerInterval = null;
+  let timeWhite = 600;
+  let timeBlack = 600;
+
+  let isOnlineMode = false;
+  let currentRoomCode = null;
+  let myOnlineColor = 'w';
+  let roomRef = null;
+  let isQuickMatch = false;
+  let matchmakingRef = null;
+
+  let currentPuzzleLevel = parseInt(localStorage.getItem('puzzleLevel')) || 1;
+  let puzzleChess = new Chess();
+  let puzzleSelected = null;
+  let moveHistory = [];
+
+  const puzzles = [
+    { fen: "6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1", sol: "Ra8#", desc: "Arka sıra matı" },
+    { fen: "8/8/8/8/8/1k6/8/1K1R4 w - - 0 1", sol: "Rd3#", desc: "Kale matı" },
+    { fen: "7k/6pp/8/8/8/8/6PP/5R1K w - - 0 1", sol: "Rf8#", desc: "Arka sıra" },
+    { fen: "8/8/8/8/8/2k5/1q6/1K6 b - - 0 1", sol: "Qb2#", desc: "Vezir matı" },
+    { fen: "r5rk/5p1p/5R2/4B3/8/8/7P/7K w - - 0 1", sol: "Rxh7#", desc: "Şah çekme" },
+    { fen: "6k1/5p1p/6p1/8/8/8/1Q3PPP/6K1 w - - 0 1", sol: "Qb8#", desc: "Vezir arka sıra" }
+  ];
+
+  const coachImages = {
+    magnus: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/Magnus_Carlsen_%282019%29_%28cropped%29.jpg/220px-Magnus_Carlsen_%282019%29_%28cropped%29.jpg',
+    sabo: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sabri'
+  };
+
+  document.getElementById('homePuzzleLvl').innerText = `Seviye ${currentPuzzleLevel} / 3000`;
+  document.getElementById('puzzleLevelText').innerText = `Seviye ${currentPuzzleLevel} / 3000`;
+
+  function selectCoach(type) {
+    currentCoach = type;
+    closeModal('coachModal');
+    document.getElementById('gameCoachAvatar').style.backgroundImage = `url('${coachImages[type]}')`;
+    let name = type === 'magnus' ? 'Magnus' : 'Sabo Paşa';
+    document.getElementById('coachText').innerText = `${name} hazır. Hadi başlayalım!`;
+    startGame('passandplay');
+  }
+
+  function setTime(seconds) {
+    timeControl = seconds; timeWhite = seconds; timeBlack = seconds;
+    closeModal('timeModal');
+    if(seconds === 0) document.getElementById('selectedTimeDisplay').innerText = '⏱️ Süresiz ▼';
+    else document.getElementById('selectedTimeDisplay').innerText = `⏱️ ${Math.floor(seconds/60)} dk ▼`;
+  }
+
+  function setBot(level) {
+    closeModal('optionsModal');
+    startGame('bot');
+  }
+
+  function startGame(mode) {
+    currentMode = mode;
+    chess = new Chess();
+    selectedSq = null; legalTargets = []; lastMove = null; gameOver = false; moveHistory = [];
+    thinking = false; isFlipped = false;
+    
+    document.getElementById('gameCoachAvatar').style.backgroundImage = `url('${coachImages[currentCoach]}')`;
+    
+    if(mode === 'passandplay') {
+      playerColor = 'w';
+      document.getElementById('coachText').innerText = "Yüz Yüze Modu: Beyaz taşlar başlar.";
+    } else if(mode === 'bot') {
+      playerColor = 'w';
+      document.getElementById('coachText').innerText = "Bot Modu: İyi şanslar!";
+    }
+    
+    timeWhite = timeControl; timeBlack = timeControl;
+    startTimer();
+    showScreen('gameScreen');
+    renderBoard('board');
+  }
+
+  function startTimer() {
+    if(timerInterval) clearInterval(timerInterval);
+    if(timeControl === 0) {
+      document.getElementById('timerTop').innerText = '∞';
+      document.getElementById('timerBottom').innerText = '∞';
+      return;
+    }
+    updateTimerDisplay();
+    timerInterval = setInterval(() => {
+      if(gameOver) return;
+      if(chess.turn() === 'w') {
+        timeWhite--;
+        if(timeWhite <= 0) endGame('Siyah kazandı (Süre Bitti)');
+      } else {
+        timeBlack--;
+        if(timeBlack <= 0) endGame('Beyaz kazandı (Süre Bitti)');
+      }
+      updateTimerDisplay();
+    }, 1000);
+  }
+
+  function updateTimerDisplay() {
+    if(timeControl === 0) return;
+    const format = (t) => `${Math.floor(t/60)}:${(t%60).toString().padStart(2,'0')}`;
+    document.getElementById('timerTop').innerText = isFlipped ? format(timeWhite) : format(timeBlack);
+    document.getElementById('timerBottom').innerText = isFlipped ? format(timeBlack) : format(timeWhite);
+    document.getElementById('timerTop').classList.toggle('active', (isFlipped ? 'w' : 'b') === chess.turn());
+    document.getElementById('timerBottom').classList.toggle('active', (isFlipped ? 'b' : 'w') === chess.turn());
+  }
+
+  function renderBoard(boardId) {
+    const el = document.getElementById(boardId);
+    if(!el) return;
+    el.innerHTML = '';
+    
+    let currentChess = boardId === 'puzzleBoard' ? puzzleChess : chess;
+    const inCheck = currentChess.in_check();
+    const inCheckmate = currentChess.in_checkmate();
+    let kingSquare = null;
+    
+    if (inCheck || inCheckmate) {
+      const b = currentChess.board();
+      for (let r=0; r<8; r++) for (let c=0; c<8; c++) {
+        const p = b[r][c];
+        if (p && p.type === 'k' && p.color === currentChess.turn()) kingSquare = FILES[c] + (8 - r);
+      }
+    }
+
+    for (let i = 0; i < 64; i++) {
+      const row = Math.floor(i / 8), col = i % 8;
+      let rank, file;
+      if (isFlipped && boardId === 'board') { rank = row; file = 7 - col; } 
+      else { rank = 7 - row; file = col; }
+      
+      const sqName = FILES[file] + (rank + 1);
+      const isLight = ((file + rank) % 2) === 0;
+      
+      const sqEl = document.createElement('div');
+      sqEl.className = 'square ' + (isLight ? 'light' : 'dark');
+      sqEl.dataset.sq = sqName;
+      
+      if (lastMove && (lastMove.from === sqName || lastMove.to === sqName)) sqEl.classList.add('last-move');
+      if (selectedSq === sqName && boardId === 'board') sqEl.classList.add('selected');
+      if (legalTargets.includes(sqName) && boardId === 'board') sqEl.classList.add(currentChess.get(sqName) ? 'capture-target' : 'move-target');
+
+      if (boardId === 'puzzleBoard' && puzzleSelected === sqName) sqEl.classList.add('selected');
+      
+      if (kingSquare === sqName) {
+        if (inCheckmate) sqEl.classList.add('checkmate');
+        else if (inCheck) sqEl.classList.add('in-check');
+      }
+
+      const piece = currentChess.get(sqName);
+      if (piece) {
+        const pEl = document.createElement('div');
+        pEl.className = 'piece ' + piece.color + '-' + piece.type;
+        if(boardId === 'board') pEl.addEventListener('pointerdown', (e) => onPointerDown(e, sqName));
+        sqEl.appendChild(pEl);
+      }
+      
+      if(boardId === 'board') sqEl.addEventListener('click', () => { if (!isDragging) onSquareClick(sqName); });
+      else sqEl.addEventListener('click', () => { onPuzzleClick(sqName); });
+      
+      el.appendChild(sqEl);
+    }
+  }
+
+  function onPointerDown(e, sq) {
+    if (thinking || isAnimating || chess.game_over() || gameOver) return;
+    if (isOnlineMode && chess.turn() !== playerColor) return;
+
+    const piece = chess.get(sq);
+    if (!piece || piece.color !== chess.turn()) return;
+    dragStartSq = sq; dragStartX = e.clientX; dragStartY = e.clientY; isDragging = false;
+  }
+
+  window.addEventListener('pointermove', (e) => {
+    if (!dragStartSq) return;
+    if (!isDragging) {
+      if (Math.hypot(e.clientX - dragStartX, e.clientY - dragStartY) > 5) {
+        isDragging = true;
+        selectedSq = dragStartSq;
+        legalTargets = chess.moves({ square: dragStartSq, verbose: true }).map(m => m.to);
+        renderBoard('board');
+        const sqEl = document.getElementById('board').querySelector(`[data-sq="${dragStartSq}"]`);
+        if (sqEl) {
+          const pEl = sqEl.querySelector('.piece');
+          if (pEl) {
+            const rect = pEl.getBoundingClientRect();
+            pEl.style.width = rect.width + 'px'; pEl.style.height = rect.height + 'px';
+            pEl.classList.add('dragging-piece');
+          }
+        }
+      }
+    }
+    if (isDragging) {
+      const pEl = document.querySelector('.dragging-piece');
+      if (pEl) { pEl.style.left = e.clientX + 'px'; pEl.style.top = e.clientY + 'px'; }
+    }
+  });
+
+  window.addEventListener('pointerup', (e) => {
+    if (!dragStartSq) return;
+    if (isDragging) {
+      const dropTarget = document.elementFromPoint(e.clientX, e.clientY);
+      let targetSq = null;
+      if (dropTarget) {
+        if (dropTarget.classList.contains('square')) targetSq = dropTarget.dataset.sq;
+        else if (dropTarget.classList.contains('piece')) targetSq = dropTarget.parentElement.dataset.sq;
+      }
+      if (targetSq && legalTargets.includes(targetSq)) {
+        executeMove(dragStartSq, targetSq, false);
+      } else { selectedSq = null; legalTargets = []; renderBoard('board'); }
+      setTimeout(() => { isDragging = false; }, 50);
+    }
+    dragStartSq = null;
+  });
+
+  function onSquareClick(sq) {
+    if (thinking || isAnimating || chess.game_over() || isDragging || gameOver) return;
+    if (isOnlineMode && chess.turn() !== playerColor) return;
+    
+    if (selectedSq && legalTargets.includes(sq)) { executeMove(selectedSq, sq, true); return; }
+    const piece = chess.get(sq);
+    if (piece && piece.color === chess.turn()) {
+      if (selectedSq === sq) { selectedSq = null; legalTargets = []; }
+      else { selectedSq = sq; legalTargets = chess.moves({ square: sq, verbose: true }).map(m => m.to); }
+      renderBoard('board');
+    } else { selectedSq = null; legalTargets = []; renderBoard('board'); }
+  }
+
+  function animatePieceMove(from, to, callback) {
+    const fromSquare = document.getElementById('board').querySelector(`[data-sq="${from}"]`);
+    const toSquare = document.getElementById('board').querySelector(`[data-sq="${to}"]`);
+    if (!fromSquare || !toSquare) { callback(); return; }
+    const fromPiece = fromSquare.querySelector('.piece');
+    const toPiece = toSquare.querySelector('.piece');
+    if (!fromPiece) { callback(); return; }
+    if (toPiece) toPiece.style.opacity = '0';
+    fromPiece.style.opacity = '0';
+    const fromRect = fromPiece.getBoundingClientRect();
+    const toRect = toSquare.getBoundingClientRect();
+    const ghost = document.createElement('div');
+    ghost.className = fromPiece.className + ' ghost-piece';
+    ghost.style.left = fromRect.left + 'px'; ghost.style.top = fromRect.top + 'px';
+    ghost.style.width = fromRect.width + 'px'; ghost.style.height = fromRect.height + 'px';
+    document.body.appendChild(ghost);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        ghost.style.transform = `translate(${toRect.left - fromRect.left}px, ${toRect.top - fromRect.top}px)`;
+      });
+    });
+    setTimeout(() => { ghost.remove(); callback(); }, 200);
+  }
+
+  function executeMove(from, to, animate = true) {
+    if (isAnimating) return;
+    const isCapture = !!chess.get(to);
+    selectedSq = null; legalTargets = [];
+    
+    const doMove = () => {
+      const move = chess.move({ from, to, promotion: 'q' });
+      if (move) {
+        moveHistory.push(move.san);
+        if (chess.in_checkmate()) playSound('check'); 
+        else if (chess.in_check()) playSound('check');
+        else if (isCapture) playSound('capture');
+        else playSound('move');
+        
+        lastMove = move; isAnimating = false;
+        
+        // YÜZ YÜZE MODUNDA TAHTA DÖNMEZ, SADECE SIRA DEĞİŞİR
+        if (currentMode === 'passandplay' && !chess.game_over()) {
+           document.getElementById('coachText').innerText = chess.turn() === 'w' ? "Sıra Beyazlarda" : "Sıra Siyahlarda";
+           setTimeout(() => { renderBoard('board'); updateTimerDisplay(); }, 300);
+        } else {
+           renderBoard('board'); updateTimerDisplay();
+        }
+
+        if (checkGameEnd()) return;
+
+        if (isOnlineMode && roomRef) {
+           roomRef.update({ fen: chess.fen(), lastMove: JSON.stringify(move) });
+        } 
+        else if (currentMode === 'bot' && !chess.game_over()) {
+           thinking = true; setTimeout(aiTurn, 200);
+        }
+      } else { isAnimating = false; renderBoard('board'); }
+    };
+
+    if (animate) { isAnimating = true; animatePieceMove(from, to, doMove); } 
+    else { doMove(); }
+  }
+
+  function aiTurn() {
+    if (chess.game_over() || gameOver || isOnlineMode) { thinking = false; return; }
+    const moves = chess.moves({ verbose: true });
+    if(moves.length === 0) { thinking = false; return; }
+    
+    let move = moves[Math.floor(Math.random()*moves.length)];
+    const isCapture = !!chess.get(move.to);
+    
+    isAnimating = true;
+    animatePieceMove(move.from, move.to, () => {
+      chess.move(move); lastMove = move; moveHistory.push(move.san);
+      if (chess.in_checkmate()) playSound('check');
+      else if (chess.in_check()) playSound('check');
+      else if (isCapture) playSound('capture');
+      else playSound('move');
+      
+      isAnimating = false; thinking = false;
+      selectedSq = null; legalTargets = [];
+      renderBoard('board'); updateTimerDisplay(); checkGameEnd();
+    });
+  }
+
+  function checkGameEnd() {
+    if (gameOver) return true;
+    if (chess.in_checkmate()) {
+      gameOver = true; clearInterval(timerInterval);
+      const winner = chess.turn() === 'w' ? 'Siyah' : 'Beyaz';
+      endGame(`${winner} Kazandı! (Mat)`);
+      return true;
+    }
+    if (chess.in_draw() || chess.in_stalemate() || chess.insufficient_material()) {
+      gameOver = true; clearInterval(timerInterval);
+      endGame('Berabere (Pat / Yetersiz Materyal)');
+      return true;
+    }
+    return false;
+  }
+
+  function endGame(message) {
+    gameOver = true; clearInterval(timerInterval);
+    document.getElementById('gameOverTitle').innerText = message;
+    document.getElementById('gameOverDesc').innerText = "Hamleleri incelemek ister misiniz?";
+    openModal('gameOverModal');
+    if(message.includes('Kazandı')) {
+      document.getElementById('coachText').innerText = currentCoach === 'magnus' ? "Harika bir oyun!" : "Sabo Paşa der ki: Helal olsun!";
+    }
+  }
+
+  function offerDraw() { if(!gameOver) openModal('drawModal'); }
+  function respondDraw(accepted) {
+    closeModal('drawModal');
+    if(accepted) endGame('Beraberlik (Anlaşma)');
+    else document.getElementById('coachText').innerText = "Beraberlik reddedildi.";
+  }
+
+  function exitGame() {
+    clearInterval(timerInterval); gameOver = true; 
+    if (isOnlineMode && currentRoomCode && db) {
+      db.ref('rooms/' + currentRoomCode).remove();
+      db.ref('matchmaking/' + currentRoomCode).remove();
+    }
+    if(matchmakingRef) matchmakingRef.off();
+    isOnlineMode = false; currentRoomCode = null;
+    showScreen('homeScreen');
+  }
+
+  // --- ONLINE VE MATCHMAKING MANTIĞI ---
+  function startQuickMatch() {
+    if (!db) return;
+    currentRoomCode = Math.random().toString(36).substring(2, 7).toUpperCase();
+    myOnlineColor = Math.random() < 0.5 ? 'w' : 'b'; 
+    playerColor = myOnlineColor;
+    isOnlineMode = true; isQuickMatch = true; gameOver = false; chess = new Chess();
+    isFlipped = (playerColor === 'b');
+    
+    roomRef = db.ref('rooms/' + currentRoomCode);
+    roomRef.set({ fen: chess.fen(), creatorColor: myOnlineColor, lastMove: null, status: 'waiting' }).then(() => {
+        document.getElementById('onlineMain').style.display = 'none';
+        document.getElementById('onlineWait').style.display = 'block';
+        document.getElementById('waitTitle').innerText = "Eşleşme Aranıyor";
+        document.getElementById('waitDesc').innerText = "Lütfen bekle, sana rakip bulunuyor...";
+        document.getElementById('waitCode').innerText = currentRoomCode;
+        document.getElementById('waitStatus').innerText = "Sıradasın...";
+        document.getElementById('waitSpinner').style.display = 'block';
+        renderBoard('board'); startTimer();
+    });
+
+    matchmakingRef = db.ref('rooms');
+    matchmakingRef.on('value', (snap) => {
+      if(gameOver || !isQuickMatch) return;
+      const rooms = snap.val();
+      if(!rooms) return;
+
+      for(let key in rooms) {
+        if(key !== currentRoomCode && rooms[key].status === 'waiting') {
+           const joinRef = db.ref('rooms/' + key);
+           joinRef.once('value').then(snap2 => {
+              const rData = snap2.val();
+              if(rData && rData.status === 'waiting') {
+                 currentRoomCode = key;
+                 roomRef = joinRef;
+                 myOnlineColor = rData.creatorColor === 'w' ? 'b' : 'w';
+                 playerColor = myOnlineColor;
+                 isFlipped = (playerColor === 'b');
+                 
+                 roomRef.update({ status: 'playing' });
+                 
+                 roomRef.on('value', (s) => {
+                    const d = s.val();
+                    if(d && d.fen && d.fen !== chess.fen()) {
+                       chess.load(d.fen);
+                       lastMove = d.lastMove ? JSON.parse(d.lastMove) : null;
+                       renderBoard('board'); updateTimerDisplay(); checkGameEnd();
+                    }
+                 });
+                 
+                 chess.load(rData.fen);
+                 lastMove = rData.lastMove ? JSON.parse(rData.lastMove) : null;
+                 
+                 closeModal('onlineModal');
+                 showScreen('gameScreen');
+                 document.getElementById('coachText').innerText = `Eşleşme başarılı! Rengin: ${myOnlineColor === 'w' ? 'Beyaz' : 'Siyah'}`;
+                 if(matchmakingRef) matchmakingRef.off();
+              }
+           });
+           break;
+        }
+      }
+    });
+
+    roomRef.on('value', (snap) => {
+      const data = snap.val();
+      if (!data) return;
+      if (data.status === 'playing') { 
+         closeModal('onlineModal'); showScreen('gameScreen'); 
+         if(matchmakingRef) matchmakingRef.off();
+      }
+      if (data.fen && data.fen !== chess.fen()) {
+        chess.load(data.fen);
+        lastMove = data.lastMove ? JSON.parse(data.lastMove) : null;
+        renderBoard('board'); updateTimerDisplay(); checkGameEnd();
+      }
+    });
+  }
+
+  function createOnlineRoom(color) {
+    if (!db) return;
+    currentRoomCode = Math.random().toString(36).substring(2, 7).toUpperCase();
+    myOnlineColor = color; playerColor = myOnlineColor;
+    isOnlineMode = true; isQuickMatch = false; gameOver = false; chess = new Chess();
+    isFlipped = (playerColor === 'b');
+    lastMove = null; selectedSq = null; legalTargets = [];
+
+    roomRef = db.ref('rooms/' + currentRoomCode);
+    roomRef.set({ fen: chess.fen(), creatorColor: myOnlineColor, lastMove: null, status: 'waiting' }).then(() => {
+        document.getElementById('onlineMain').style.display = 'none';
+        document.getElementById('onlineWait').style.display = 'block';
+        document.getElementById('waitTitle').innerText = "Oda Kuruldu";
+        document.getElementById('waitDesc').innerText = "Bu kodu arkadaşına gönder:";
+        document.getElementById('waitCode').innerText = currentRoomCode;
+        document.getElementById('waitStatus').innerText = "Rakip bekleniyor...";
+        document.getElementById('waitSpinner').style.display = 'block';
+        renderBoard('board'); startTimer();
+    });
+
+    roomRef.on('value', (snap) => {
+      const data = snap.val();
+      if (!data) return;
+      if (data.status === 'playing') { closeModal('onlineModal'); showScreen('gameScreen'); }
+      if (data.fen && data.fen !== chess.fen()) {
+        chess.load(data.fen);
+        lastMove = data.lastMove ? JSON.parse(data.lastMove) : null;
+        renderBoard('board'); updateTimerDisplay(); checkGameEnd();
+      }
+    });
+  }
+
+  function joinOnlineRoom() {
+    if (!db) return;
+    const code = document.getElementById('joinCodeInput').value.toUpperCase().trim();
+    if (code.length < 4) return;
+
+    const testRef = db.ref('rooms/' + code);
+    testRef.once('value').then((snapshot) => {
+      const data = snapshot.val();
+      if (!data) { document.getElementById('coachText').innerText = "Oda bulunamadı!"; return; }
+      
+      currentRoomCode = code; isOnlineMode = true; isQuickMatch = false; gameOver = false;
+      myOnlineColor = data.creatorColor === 'w' ? 'b' : 'w'; playerColor = myOnlineColor;
+      isFlipped = (playerColor === 'b');
+      roomRef = testRef;
+      
+      roomRef.update({ status: 'playing' });
+      chess.load(data.fen);
+      lastMove = data.lastMove ? JSON.parse(data.lastMove) : null;
+      
+      renderBoard('board'); startTimer(); updateTimerDisplay();
+      closeModal('onlineModal'); showScreen('gameScreen');
+
+      roomRef.on('value', (snap) => {
+        const d = snap.val();
+        if (d && d.fen && d.fen !== chess.fen()) {
+           chess.load(d.fen);
+           lastMove = d.lastMove ? JSON.parse(d.lastMove) : null;
+           renderBoard('board'); updateTimerDisplay(); checkGameEnd();
+        }
+      });
+    });
+  }
+
+  function cancelOnlineRoom() {
+    if (currentRoomCode && db) {
+       db.ref('rooms/' + currentRoomCode).remove();
+       db.ref('matchmaking/' + currentRoomCode).remove();
+    }
+    if(matchmakingRef) matchmakingRef.off();
+    isOnlineMode = false; currentRoomCode = null;
+    document.getElementById('onlineMain').style.display = 'block';
+    document.getElementById('onlineWait').style.display = 'none';
+    closeModal('onlineModal');
+    gameOver = true; clearInterval(timerInterval);
+  }
+
+  function goToReview() {
+    closeModal('gameOverModal'); showScreen('reviewScreen');
+    const list = document.getElementById('reviewList');
+    list.innerHTML = '';
+    
+    document.getElementById('reviewCoachName').innerText = currentCoach === 'magnus' ? "Magnus Carlsen Analizi" : "Sabo Paşa Analizi";
+    document.getElementById('reviewCoachImg').style.backgroundImage = `url('${coachImages[currentCoach]}')`;
+    
+    if(moveHistory.length === 0) {
+      list.innerHTML = '<div style="padding:20px; text-align:center;">Oynanmış hamle yok.</div>';
+      return;
+    }
+    for(let i=0; i<moveHistory.length; i++) {
+      const moveSan = moveHistory[i];
+      let evalClass = ''; let evalText = '';
+      if(i % 5 === 0) { evalClass = 'eval-brilliant'; evalText = 'Mükemmel Hamle (!!)'; }
+      else if(i % 7 === 0) { evalClass = 'eval-blunder'; evalText = 'Büyük Hata (??)'; }
+      else { evalClass = 'eval-good'; evalText = 'İyi Hamle'; }
+      list.innerHTML += `<div class="review-item"><div class="review-move">${Math.floor(i/2)+1}. ${moveSan}</div><div class="review-eval ${evalClass}">${evalText}</div></div>`;
+    }
+    document.getElementById('coachText').innerText = "Oyununu inceledim. İşte hamlelerin analizi!";
+  }
+
+  function loadPuzzle() {
+    const pIndex = (currentPuzzleLevel - 1) % puzzles.length;
+    const currentP = puzzles[pIndex];
+    
+    document.getElementById('puzzleLevelText').innerText = `Seviye ${currentPuzzleLevel} / 3000`;
+    document.getElementById('homePuzzleLvl').innerText = `Seviye ${currentPuzzleLevel} / 3000`;
+    document.getElementById('puzzleDesc').innerText = currentP.desc + " (Sıra: " + (currentP.fen.includes(' w ') ? "Beyaz" : "Siyah") + ")";
+    
+    puzzleChess = new Chess(currentP.fen);
+    puzzleSelected = null;
+    renderBoard('puzzleBoard');
+  }
+
+  function onPuzzleClick(sq) {
+    const moves = puzzleChess.moves({square: puzzleSelected, verbose:true});
+    if(puzzleSelected && moves.some(m => m.to === sq)) {
+        const move = puzzleChess.move({from: puzzleSelected, to: sq});
+        playSound('move'); puzzleSelected = null;
+        if(puzzleChess.in_checkmate()) {
+            playSound('check');
+            document.getElementById('coachText').innerText = "Tebrikler! Mat yaptın. Sonraki seviyeye geçiliyor.";
+            setTimeout(() => nextPuzzle(), 1000);
+        } else { renderBoard('puzzleBoard'); }
+    } else {
+        const piece = puzzleChess.get(sq);
+        if(piece && piece.color === puzzleChess.turn()) { puzzleSelected = sq; renderBoard('puzzleBoard'); }
+    }
+  }
+
+  function nextPuzzle() {
+    currentPuzzleLevel = (currentPuzzleLevel % 3000) + 1;
+    localStorage.setItem('puzzleLevel', currentPuzzleLevel);
+    loadPuzzle();
+  }
+
+  document.getElementById('gameCoachAvatar').style.backgroundImage = `url('${coachImages[currentCoach]}')`;
+  setTime(600);
+</script>
+</body>
+  </html>
